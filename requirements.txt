@@ -1,0 +1,9 @@
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
+numpy==1.26.4
+pandas==2.2.2
+Pillow==10.3.0
+opencv-python==4.10.0.84
+facenet-pytorch==2.6.0
+tqdm==4.66.4
+scikit-learn==1.5.1
