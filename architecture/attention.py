@@ -2,19 +2,125 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# class MultiHeadAttention(nn.Module):
+#     """
+#     Generic Multi-Head Self-Attention.
+
+#     Input
+#     -----
+#     Q : (B,N,D)
+#     K : (B,N,D)
+#     V : (B,N,D)
+
+#     Output
+#     ------
+#     (B,N,D)
+#     """
+
+#     def __init__(
+#         self,
+#         embed_dim=512,
+#         num_heads=8,
+#         dropout=0.1,
+#     ):
+#         super().__init__()
+
+#         assert (
+#             embed_dim % num_heads == 0
+#         ), "embed_dim must be divisible by num_heads"
+
+#         self.embed_dim = embed_dim
+#         self.num_heads = num_heads
+#         self.head_dim = embed_dim // num_heads
+#         self.scale = self.head_dim ** -0.5
+
+#         self.dropout = nn.Dropout(dropout)
+
+#         self.out_proj = nn.Linear(
+#             embed_dim,
+#             embed_dim
+#         )
+
+#     def forward(self, Q, K, V):
+
+#         B, N, D = Q.shape
+
+#         # ----------------------------
+#         # Split into heads
+#         # ----------------------------
+
+#         Q = Q.view(
+#             B,
+#             N,
+#             self.num_heads,
+#             self.head_dim
+#         ).transpose(1,2)
+
+#         K = K.view(
+#             B,
+#             N,
+#             self.num_heads,
+#             self.head_dim
+#         ).transpose(1,2)
+
+#         V = V.view(
+#             B,
+#             N,
+#             self.num_heads,
+#             self.head_dim
+#         ).transpose(1,2)
+
+#         # ----------------------------
+#         # Attention
+#         # ----------------------------
+
+#         scores = torch.matmul(
+#             Q,
+#             K.transpose(-2,-1)
+#         )
+
+#         scores = scores * self.scale
+
+#         attn = F.softmax(
+#             scores,
+#             dim=-1
+#         )
+
+#         attn = self.dropout(attn)
+
+#         out = torch.matmul(
+#             attn,
+#             V
+#         )
+
+#         # ----------------------------
+#         # Merge heads
+#         # ----------------------------
+
+#         out = out.transpose(
+#             1,
+#             2
+#         )
+
+#         out = out.reshape(
+#             B,
+#             N,
+#             D
+#         )
+
+#         out = self.out_proj(out)
+
+#         return out
+
 class MultiHeadAttention(nn.Module):
     """
     Generic Multi-Head Self-Attention.
 
-    Input
-    -----
-    Q : (B,N,D)
-    K : (B,N,D)
-    V : (B,N,D)
+    Stores:
+        - attention_map
+        - attention_gradients
 
-    Output
-    ------
-    (B,N,D)
+    These are required for ISTVT interpretability.
     """
 
     def __init__(
@@ -25,9 +131,7 @@ class MultiHeadAttention(nn.Module):
     ):
         super().__init__()
 
-        assert (
-            embed_dim % num_heads == 0
-        ), "embed_dim must be divisible by num_heads"
+        assert embed_dim % num_heads == 0
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -41,50 +145,72 @@ class MultiHeadAttention(nn.Module):
             embed_dim
         )
 
+        # -------------------------
+        # Interpretability
+        # -------------------------
+
+        self.attention_map = None
+        self.attention_gradients = None
+
+    def save_attention_gradients(self, grad):
+        self.attention_gradients = grad
+
+    def get_attention_map(self):
+        return self.attention_map
+
+    def get_attention_gradients(self):
+        return self.attention_gradients
+    
+    def clear(self):
+        self.attention_map = None
+        self.attention_gradients = None
     def forward(self, Q, K, V):
 
         B, N, D = Q.shape
-
-        # ----------------------------
-        # Split into heads
-        # ----------------------------
 
         Q = Q.view(
             B,
             N,
             self.num_heads,
             self.head_dim
-        ).transpose(1,2)
+        ).transpose(1, 2)
 
         K = K.view(
             B,
             N,
             self.num_heads,
             self.head_dim
-        ).transpose(1,2)
+        ).transpose(1, 2)
 
         V = V.view(
             B,
             N,
             self.num_heads,
             self.head_dim
-        ).transpose(1,2)
-
-        # ----------------------------
-        # Attention
-        # ----------------------------
+        ).transpose(1, 2)
 
         scores = torch.matmul(
             Q,
-            K.transpose(-2,-1)
+            K.transpose(-2, -1)
         )
 
-        scores = scores * self.scale
+        scores *= self.scale
 
-        attn = F.softmax(
+        attn = torch.softmax(
             scores,
             dim=-1
         )
+
+        # -------------------------
+        # Save attention
+        # -------------------------
+
+        self.attention_map = attn
+
+        if attn.requires_grad:
+            attn.register_hook(
+                self.save_attention_gradients
+            )
 
         attn = self.dropout(attn)
 
@@ -92,10 +218,6 @@ class MultiHeadAttention(nn.Module):
             attn,
             V
         )
-
-        # ----------------------------
-        # Merge heads
-        # ----------------------------
 
         out = out.transpose(
             1,
@@ -400,3 +522,4 @@ if __name__ == "__main__":
 
     z = spatial(y)
     print("After Spatial :", z.shape)
+

@@ -155,7 +155,9 @@ def main(src_root, dst_root):
     os.makedirs(os.path.join(dst_root, "real"), exist_ok=True)
     os.makedirs(os.path.join(dst_root, "fake"), exist_ok=True)
 
-    mtcnn = MTCNN(keep_all=False, device="cpu", post_process=False)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    mtcnn = MTCNN(keep_all=False, device= device, post_process=False)
 
     videos = collect_videos(src_root)
     print(f"\nFound {len(videos)} videos to process")
