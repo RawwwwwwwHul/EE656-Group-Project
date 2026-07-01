@@ -80,7 +80,7 @@ needed_originals = set()
 
 for cat in ["DeepFakeDetection","Face2Face","FaceSwap","NeuralTextures"]:
 
-    chosen[cat] = random.sample(cats[cat],60)
+    chosen[cat] = random.sample(cats[cat],5)
 
     for file in chosen[cat]:
 
@@ -120,7 +120,7 @@ if len(chosen_originals) < 100:
         )
     )
 
-chosen["original"] = chosen_originals[:100]
+chosen["original"] = chosen_originals[:20]
 
 print("\nDownload Summary")
 for k in chosen:
